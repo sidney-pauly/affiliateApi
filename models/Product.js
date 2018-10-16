@@ -16,14 +16,14 @@ var ListingSchema = Schema({
   Shipping: Number,
   Brand: String,
   ShopTitle: String,
-  Logos: [String],
-  Category: {type: Schema.Types.ObjectId, ref: 'Category'}
+  Logos: [String]
 });
 
 var ProductSchema = Schema({
   EAN: String,
   Listings: [ListingSchema],
-  Title: String
+  Title: String,
+  Category: {type: Schema.Types.ObjectId, ref: 'Category'}
 });
 
 var Product = mongoose.model('Product', ProductSchema);

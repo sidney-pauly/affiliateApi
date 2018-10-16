@@ -6,46 +6,41 @@ var Category = require('../models/Category.js');
 var AffilinetPublisherId = '821350';
 var AffilinetPassword = '9j3msjLqmyVvXns5tKZ7';
 
+async function asyncForEach(array, callback) {
+  for (let index = 0; index < array.length; index++) {
+    await callback(array[index], index, array)
+  }
+}
+
 //Returns the apropriate Category based on the given product key
 //Missing categories in the given tree get created
 function getCategoryfromTree(categoryTree, affiliateProgram){
 
-  return verifyLevel(0, undefined)
+  async function verifyLevel(level, parent){
 
-  function verifyLevel(level, parent){
+    //Find existing Category
+    var c = await Category.findOne({Level: level, Aliases: {$elemMatch: {Id: categoryTree[level].Id, AffiliateProgram: affiliateProgram}}})
 
-    var promiseChain = Promise.resolve();
+    //if Category doesn't exist create one
+    if(!c){
+      c = await Category.create({
+        Title: categoryTree[level].Title,
+        Level: level,
+        Aliases: [{Title: categoryTree[level].Title, Id: categoryTree[level].Id, AffiliateProgram: affiliateProgram}],
+        Parent: parent
+      });
+    }
 
-    //Find missing Category
-    promiseChain = promiseChain.then(function(){
-      return Category.findOne({Level: level, Aliases: {$elemMatch: {Id: categoryTree[level].Id, AffiliateProgram: affiliateProgram}}})
-    });
+    //if there is another category in the tree match it
+    if(categoryTree[level+1]){
+      return verifyLevel(level+1, c._id);
+    } else {
+      return c;
+    }
 
-    promiseChain = promiseChain.then(function(c){
-      //if Category doesn't exist create one
-      if(!c){
-        return Category.create({
-          Title: categoryTree[level].Title,
-          Level: level,
-          Aliases: [{Title: categoryTree[level].Title, Id: categoryTree[level].Id, AffiliateProgram: affiliateProgram}],
-          Parent: parent
-        });
-      } else {
-        return c;
-      }
-    });
-
-    //if there is another category in the tree check it
-    promiseChain = promiseChain.then(function(c){
-        if(categoryTree[level+1]){
-          return verifyLevel(level+1, c._id);
-        } else {
-          return c;
-        }
-    })
-
-    return promiseChain;
   }
+
+  return verifyLevel(0, undefined);
 
 }
 
@@ -68,7 +63,7 @@ function getCategoryTreeAffilinet(product){
 }
 
 
-function AddAffilinetListing(product, listing){
+async function AddAffilinetListing(product, listing){
 
   function getImages(){
     var Images = [];
@@ -107,20 +102,20 @@ function AddAffilinetListing(product, listing){
   }
 
   //Find existing Lsiting and make new one if none exists
-    var existingListingId = product.Listings.findIndex(function(l){
+    var existingListingId = await product.Listings.findIndex(function(l){
       return l.AffiliateProgram === 'Affilinet' && l.AffiliateProgramProductId === listing.ProductId;
     });
 
     if(existingListingId > -1){
       product.Listings[existingListingId].set(data);
     } else {
+      //Create new listing
       product.Listings.push(data).isNew;
-      //Mark listing as news
     }
 
 }
 
-function addSimilarAffilinetProducts(product){
+async function addSimilarAffilinetProducts(product){
 
   var options = {
     uri: 'https://product-api.affili.net/V3/productservice.svc/JSON/SearchProducts',
@@ -134,19 +129,49 @@ function addSimilarAffilinetProducts(product){
     }
   };
 
-  return rp(options).then(function(body){
-
-    body = JSON.parse(body.trim());
-
-    body.Products.forEach(function(p){
-      AddAffilinetListing(product, p);
-    });
-
-    return(product);
+  var body = await rp(options);
+  body = JSON.parse(body.trim());
+  body.Products.forEach(function(p){
+    AddAffilinetListing(product, p);
   });
+
 }
 
-function searchAffilinet(query){
+async function addProduct(affilinetProduct){
+  //Check if this EAN is already handeled in this search
+
+  var p = await Product.findOne({EAN: affilinetProduct.EAN});
+
+  if(!p){
+
+    //Get the category async
+    var Category = getCategory();
+
+    async function getCategory(){
+      const CategoryTree = await getCategoryTreeAffilinet(affilinetProduct);
+      return await getCategoryfromTree(CategoryTree, 'Affilinet');
+    }
+
+    p = await Product.create({EAN: affilinetProduct.EAN, Title: affilinetProduct.ProductName, Listings: []});
+    
+    var c = await Promise.resolve(Category);
+    delete p.CategoryTree;
+    p.Category = c._id;
+  
+  }
+
+  AddAffilinetListing(p, affilinetProduct);
+
+  //Find similar products in the Affilinet database
+  await addSimilarAffilinetProducts(p);
+  
+  //Save product
+  p = await p.save();
+  return p
+
+}
+
+ async function searchAffilinet(query, callback){
 
   var options = {
     uri: 'https://product-api.affili.net/V3/productservice.svc/JSON/SearchProducts',
@@ -160,49 +185,22 @@ function searchAffilinet(query){
     }
   };
 
-  return rp(options).then(function(body){
-
-    body = JSON.parse(body.trim());
-    var EANs = [];
-
-    return Promise.all(body.Products.map((product) => {
-
-      //Check if this EAN is already handeled in this search
-      if(EANs.find( EAN => {return EAN === product.EAN}) === undefined){
-
-        var promiseChain = Promise.resolve();
-
-        promiseChain = promiseChain.then(function(){
-      
-
-          EANs.push(product.EAN);
-          return Product.findOne({EAN: product.EAN})
   
-        })
-        
-        //Create product if no similar ones exsist
-        promiseChain = promiseChain.then(function(p){
-          if(!p){
-            return Product.create({EAN: product.EAN, Title: product.ProductName, Listings: []});
-          } else {
-            return p;
-          }
-        })
+  var body = await rp(options);
 
-        //Find similar products in the Affilinet database
-        promiseChain = promiseChain.then(function(p){
-          
-            AddAffilinetListing(p, product);
-            return addSimilarAffilinetProducts(p);
-    
-        })
+  body = JSON.parse(body.trim());
 
-        return promiseChain;
-      }
+  var Products = []
 
-    }));
+  await asyncForEach(body.Products, async affilinetProduct => {
+    var p =  await addProduct(affilinetProduct);
+    Products.push(p);
+    if(p){
+      callback(p);
+    }
+  })
 
-  });
+  return Products;
 
 }
 
@@ -211,49 +209,32 @@ module.exports = function(app){
   app.get('/affilinet', function(req, res){
 
     var time = Date.now();
+    
 
-    searchAffilinet(req.query.query).then(function(products){
+    try{
 
 
+      helper();
+
+      async function helper(){
+        var products = await searchAffilinet(req.query.query, function(p){
+          
+        });
+        products =  products.filter( p => {return p != undefined});
+        console.log(Date.now() - time + 'ms');
+        res.send(products)
+      }
       
-      //Filter out all undefined elements and then send array
-      products =  products.filter( p => {return p != undefined});
-      console.log(Date.now() - time + 'ms');
-
-      var pr = [];
-      var promiseChain = Promise.resolve(pr);
-
-      //Loop thru the products and perform operations sychronos
-      products.forEach(p => {
-
-        promiseChain = promiseChain.then(pr => {
-
-          //Get prodcut category
-          return getCategoryfromTree(getCategoryTreeAffilinet(p), 'Affilinet').then(function(c){
-            p.Category = c._id;
-            return p;
-          }).then(function(p){
-            return p.save();
-          }).then(function(p){
-            pr.push(p);
-            return pr;
-          })
-        })
-
-      });
 
       
 
-    }).then(function(products){
-
-      res.send(products)
-
-    }).catch(function(er){
+    } catch(er){
 
       console.log(er);
-      res.code(404);
+      res.status(404);
       res.send('Internal server error');
-    });
+
+    }
 
   });
 

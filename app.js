@@ -12,7 +12,19 @@ var app = express();
 app.set('view engine', 'ejs');
 
 //Connect to Database
-mongoose.connect('mongodb://localhost:27017/Affiliate');
+ConnectToDatabase();
+
+function ConnectToDatabase(){
+  mongoose.connect('mongodb://localhost:27017/Affiliate').then(function(){
+    console.log('Connected to Database');
+  }).catch( function(err) {
+      console.log(err.message);
+      setTimeout(function(){
+        ConnectToDatabase();
+      }, 2000);
+  })
+}
+
 
 //static files
 app.use(express.static('./public'));
