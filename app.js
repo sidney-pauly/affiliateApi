@@ -1,11 +1,20 @@
 var express = require('express');
+var app = express();
 var mongoose = require('mongoose');
+var server = require('http').Server(app);
+var io = require('socket.io')(server);
 var apiController = require('./controllers/apiController.js')
 var productController = require('./controllers/productController.js')
 
 
-//Setup express
-var app = express();
+
+//Setup socket io
+var socket = new Promise(function(resolve, reject){
+  io.on('connection', function (s) {
+    resolve(s)
+ });
+})
+
 
 
 //set up template engine
@@ -15,13 +24,14 @@ app.set('view engine', 'ejs');
 ConnectToDatabase();
 
 function ConnectToDatabase(){
-  mongoose.connect('mongodb://localhost:27017/Affiliate').then(function(){
+  console.log('Trying to connect to Database ...')
+  mongoose.connect('mongodb://localhost:27017/Affiliate', { useNewUrlParser: true }).then(function(){
     console.log('Connected to Database');
   }).catch( function(err) {
-      console.log(err.message);
+      console.log('Unable to connect to Database ... retrying every 5sec');
       setTimeout(function(){
         ConnectToDatabase();
-      }, 2000);
+      }, 5000);
   })
 }
 
@@ -44,9 +54,9 @@ app.use(function (req, res, next) {
 });
 
 //fire Controllers
-apiController(app);
+apiController(app, socket);
 productController(app);
 
 
-app.listen(3001);
+server.listen(3001);
 console.log('Listening to port 3001 on localhost');
