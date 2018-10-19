@@ -15,16 +15,5 @@ module.exports = function(app){
 
   });
 
-  app.get('/d', function(req, res){
-
-      var i = 0
-      while(i < 500000){
-        res.write('halo')
-        i++;
-      }
-    res.end()
-    
-    
-  })
 
 };

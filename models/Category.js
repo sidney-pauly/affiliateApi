@@ -10,9 +10,9 @@ var AliasSchema = Schema({
 
 var CategorySchema = Schema({
   Title: String,
-  Level: Number,
   Aliases: [AliasSchema],
-  Parent: {type: Schema.Types.ObjectId, ref: 'Category'}
+  Parent: {type: Schema.Types.ObjectId, ref: 'Category'},
+  Link: {type: Schema.Types.ObjectId, ref: 'Category'}
 });
 
 

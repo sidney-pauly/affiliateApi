@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
+var Category = require('./Category')
 
 //Create shemas
 var ListingSchema = Schema({
@@ -9,7 +10,7 @@ var ListingSchema = Schema({
   Description: String,
   DescriptionShort: String,
   Deeplink: String,
-  Images: [String],
+  Images: [Schema({URL: String, Width: Number, Height: Number})],
   DisplayPrice: String,
   DisplayShipping: String,
   Price: Number,

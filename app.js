@@ -3,17 +3,13 @@ var app = express();
 var mongoose = require('mongoose');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
-var apiController = require('./controllers/apiController.js')
+var searchController = require('./controllers/searchController.js')
 var productController = require('./controllers/productController.js')
+var categoryController = require('./controllers/categoryController.js')
 
 
 
-//Setup socket io
-var socket = new Promise(function(resolve, reject){
-  io.on('connection', function (s) {
-    resolve(s)
- });
-})
+
 
 
 
@@ -54,8 +50,16 @@ app.use(function (req, res, next) {
 });
 
 //fire Controllers
-apiController(app, socket);
+var SocketCreatedSearchCon = searchController(app);
 productController(app);
+var SocketCreatedCategoryCon = categoryController(app);
+
+//Setup socket io
+  io.on('connection', function (s) {
+    SocketCreatedSearchCon(s)
+    SocketCreatedCategoryCon(s)
+ });
+
 
 
 server.listen(3001);

@@ -1,5 +1,6 @@
 var rp = require('request-promise-native');
 var Product = require('../../models/Product');
+var Category = require('../../models/Category');
 var {asyncForEach, getCategoryFromTree} = require('../libary.js');
 
 var AffilinetPublisherId = '821350';
@@ -16,8 +17,10 @@ function getCategoryTreeAffilinet(product){
   //Get Categorie id
   var i = 0;
   product.ShopCategoryIdPath.replace(/\d+/g, function(match, g1, g2) {
-    CategoryTree[i].Id = match;
+    if( CategoryTree[i]){
+      CategoryTree[i].Id = match;
     i++;
+    }
   });
 
   return CategoryTree;
@@ -30,7 +33,7 @@ async function AddAffilinetListing(product, listing){
     var Images = [];
     listing.Images.forEach(function(i){
       i.forEach(function(ri){
-        Images.push(ri.URL);
+        Images.push({URL: ri.URL, Width: ri.Width, Height: ri.Height});
       });
     });
     return Images;
@@ -78,6 +81,10 @@ async function AddAffilinetListing(product, listing){
 
 async function addSimilarAffilinetProducts(product){
 
+  if(!product.EAN){
+    return
+  }
+
   var options = {
     uri: 'https://product-api.affili.net/V3/productservice.svc/JSON/SearchProducts',
     qs: {
@@ -103,7 +110,7 @@ async function addProduct(affilinetProduct){
 
   var p = await Product.findOne({EAN: affilinetProduct.EAN});
 
-  if(!p){
+  if(!p || !affilinetProduct.EAN){
 
     //Get the category async
     var Category = getCategory();
@@ -116,9 +123,11 @@ async function addProduct(affilinetProduct){
     p = await Product.create({EAN: affilinetProduct.EAN, Title: affilinetProduct.ProductName, Listings: []});
     
     var c = await Promise.resolve(Category);
+    p.Categorie = c;
     delete p.CategoryTree;
-    p.Category = c._id;
-  
+    if(!c){
+      return
+    }
   }
 
   AddAffilinetListing(p, affilinetProduct);
@@ -132,7 +141,7 @@ async function addProduct(affilinetProduct){
 }
 
 module.exports = {
-  searchAffilinet: async function(query, callback){
+  searchAffilinet: async function(query, maxResults, callback){
 
     var options = {
       uri: 'https://product-api.affili.net/V3/productservice.svc/JSON/SearchProducts',
@@ -142,7 +151,7 @@ module.exports = {
           ImageScales: 'OriginalImage',
           LogoScales: 'Logo468',
           Query: query,
-          PageSize: 20
+          PageSize: maxResults
       }
     };
   
@@ -158,13 +167,17 @@ module.exports = {
 
       if(!EANs.find(e => e === affilinetProduct.EAN)){
 
-      var p =  await addProduct(affilinetProduct);
-      EANs.push(affilinetProduct.EAN);
+        var p =  await addProduct(affilinetProduct);
+        EANs.push(affilinetProduct.EAN);
 
-      Products.push(p);
         if(p){
-          callback(p);
+          p = await Product.findById(p._id).populate('Category').exec(function(err, pe){
+            Products.push(pe);
+          
+            callback(pe);
+          })
         }
+   
       }
     })
   
