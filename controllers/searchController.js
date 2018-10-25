@@ -1,4 +1,6 @@
 var {searchAffilinet} = require('./affiliateHandlers/affilinet');
+var {populateProduct} = require('./libary')
+var Product = require('../models/Product')
 
 module.exports = function(app){
 
@@ -17,6 +19,9 @@ module.exports = function(app){
           
         });
         products =  products.filter( p => {return p != undefined});
+        products = await Promise.all(products.map(async p => {
+          return p = await populateProduct(p);
+        }))
         console.log(Date.now() - time + 'ms');
         res.send(products)
       }
@@ -35,11 +40,38 @@ module.exports = function(app){
 
      //async product search thru websocket
     return function(s){
-      s.on('getProducts', function (data) {
-        searchAffilinet(data.query, data.maxResults, function(p){
-          s.emit('product', p);
-        });
+      s.on('getProducts',async function (data) {
+        
+        //Determines how the database should be searched
+        if(!data.query && data.categories){
+          
+          data.categories.forEach(c => {
+            var date = Date.now();
+            Product.find({Category: c}).then(function(products){
+              console.log((Date.now() - date) + 'ms')
 
+                products.forEach(function(pro){
+                  s.emit('product', pro);
+                })
+                
+              
+              
+            })
+          });
+
+          
+        } else if(data.query){
+
+          searchAffilinet(data.query, data.maxResults,async function(p){
+            p = await populateProduct(p);
+            s.emit('product', p);
+          });
+
+        }
+          
+
+        
+        
       })
     }
    

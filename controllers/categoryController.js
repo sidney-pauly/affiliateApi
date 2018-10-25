@@ -1,6 +1,6 @@
 var Category = require('../models/Category.js');
 var Product = require('../models/Product.js');
-var {findAllChildren, appendCategory} = require('./libary.js');
+var {findAllChildren, appendCategory, isParentOf} = require('./libary.js');
 
 module.exports = function(app){
 
@@ -37,8 +37,8 @@ module.exports = function(app){
           
         cat.Title = data.Title
         cat = await cat.save()
-        s.broadcast.emit('categoryChanged', cat); //Send to everybody exept requester
-        s.emit('categoryChanged', cat); //Send to requester
+        s.broadcast.emit('categoryChanged', cat, true); //Send to everybody exept requester
+        s.emit('categoryChanged', cat, true); //Send to requester
 
         } else {
           s.emit('errorMsg', 'Unable to change category ' + data._id + ', check if the Title was entered correctly');
@@ -57,8 +57,8 @@ module.exports = function(app){
               Parent: data._id
             });
     
-            s.broadcast.emit('newCategory', cat); //Send to everybody exept requester
-            s.emit('newCategory', cat); //Send to requester
+            s.broadcast.emit('newCategory', cat, true); //Send to everybody exept requester
+            s.emit('newCategory', cat, true); //Send to requester
   
           } else {
             s.emit('errorMsg', 'Unable to create category ' + data.Title + ', check if the Title was entered correctly');
@@ -79,14 +79,20 @@ module.exports = function(app){
             c.save();
           })
         
-          var children = await findAllChildren(data._id);
+          var children = await findAllChildren(cat);
           children.push(cat); //add parent category to also deleted it
-          s.emit('deletedCategory', cat); //Send to requester
+          s.emit('deletedCategory', cat, false); //Send to requester
 
-          children.forEach(function(c){
+          children.forEach(function(c, i){
             c.remove(); //Delete the category
-            s.broadcast.emit('deletedCategory', c); //Send to everybody exept requester
-            s.emit('deletedCategory', c); //Send to requester
+            if(i < children.length-1){
+              s.broadcast.emit('deletedCategory', c, false); //Send to everybody exept requester
+              s.emit('deletedCategory', c, false); //Send to requester
+            } else {
+              s.broadcast.emit('deletedCategory', c, true); //Send to everybody exept requester
+              s.emit('deletedCategory', c, true); //Send to requester
+            }
+            
           })
   
         } else {
@@ -100,19 +106,17 @@ module.exports = function(app){
         var cat1 = await Category.findById(data.Category1._id);
         var cat2 = await Category.findById(data.Category2._id);
 
-        var children = await findAllChildren(data.Category2._id);
-
-        if(children.some(c => c.Parent === data.Category1._id)){
-          s.emit('errorMsg', 'Unable to append parent to child');
-          return
+        if(await isParentOf(cat2, cat1)){
+          s.emit('cannot append parent to child');
+          return 
         }
         
         if(cat1 && cat2){
           
-          cat2 = appendCategory(cat1, cat2);
+          cat2 = await appendCategory(cat1, cat2);
  
-          s.broadcast.emit('categoryChanged', cat2); //Send to everybody exept requester
-          s.emit('categoryChanged', cat2); //Send to requester
+          s.broadcast.emit('categoryChanged', cat2, true); //Send to everybody exept requester
+          s.emit('categoryChanged', cat2, true); //Send to requester
 
         } else {
           s.emit('errorMsg', 'Unable to append category ' + data._id + ', the category was not found');
@@ -120,11 +124,17 @@ module.exports = function(app){
         
       })
 
+      //Merge Categories
       s.on('mergeCategories', async function (data) {
 
         var cat1 = await Category.findById(data.Category1._id);
         var cat2 = await Category.findById(data.Category2._id);
-        
+
+        if(await isParentOf(cat2, cat1)){
+          s.emit('cannot merge parent and child with result of parent becoming child.');
+          return 
+        }
+
         if(cat1 && cat2){
           
           //Append all children of cat2 to cat1
@@ -134,15 +144,15 @@ module.exports = function(app){
           })
 
           //Send deleted to update hud
-          s.broadcast.emit('deletedCategory', cat2, true); //Send to everybody exept requester
-          s.emit('deletedCategory', cat2, true); //Send to requester
+          s.broadcast.emit('deletedCategory', cat2, false); //Send to everybody exept requester
+          s.emit('deletedCategory', cat2, false); //Send to requester
 
           //Merge cat1 and cat2
           var aliases = cat1.Aliases.concat(cat2.Aliases);
           cat1.Aliases = aliases;
           cat1 = await cat1.save()
-          s.broadcast.emit('categoryChanged', cat1, false); //Send to everybody exept requester
-          s.emit('categoryChanged', cat1, false); //Send to requester
+          s.broadcast.emit('categoryChanged', cat1, true); //Send to everybody exept requester
+          s.emit('categoryChanged', cat1, true); //Send to requester
 
           
 

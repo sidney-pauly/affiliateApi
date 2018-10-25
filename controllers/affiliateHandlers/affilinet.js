@@ -123,7 +123,7 @@ async function addProduct(affilinetProduct){
     p = await Product.create({EAN: affilinetProduct.EAN, Title: affilinetProduct.ProductName, Listings: []});
     
     var c = await Promise.resolve(Category);
-    p.Categorie = c;
+    p.Category = c;
     delete p.CategoryTree;
     if(!c){
       return
@@ -171,11 +171,9 @@ module.exports = {
         EANs.push(affilinetProduct.EAN);
 
         if(p){
-          p = await Product.findById(p._id).populate('Category').exec(function(err, pe){
-            Products.push(pe);
           
-            callback(pe);
-          })
+          Products.push(p);
+          callback(p);
         }
    
       }
