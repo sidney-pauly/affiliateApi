@@ -38,7 +38,7 @@ app.use(express.static('./public'));
 //Set default Headers
 app.use(function (req, res, next) {
 
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.setHeader('Access-Control-Allow-Origin', 'http://affiliate.sc-apps.net');
 
   // Request methods you wish to allow
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
