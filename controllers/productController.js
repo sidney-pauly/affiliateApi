@@ -15,5 +15,18 @@ module.exports = function(app){
 
   });
 
+  app.get('/productsOfCategory', function(req, res){
+
+    Product.find({Category: req.query.category}).then(function(p){
+      res.send(p);
+    }).catch(function(er){
+      console.log(er);
+      res.code(404);
+      res.send('internal server error');
+    });
+
+
+});
+
 
 };
