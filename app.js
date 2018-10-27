@@ -1,5 +1,6 @@
 var express = require('express');
 var app = express();
+var bodyParser = require('body-parser');
 var mongoose = require('mongoose');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
@@ -8,13 +9,11 @@ var productController = require('./controllers/productController.js')
 var categoryController = require('./controllers/categoryController.js')
 
 
-
-
-
-
-
 //set up template engine
 app.set('view engine', 'ejs');
+
+//Use body parser
+app.use(bodyParser.json());
 
 //Connect to Database
 ConnectToDatabase();
@@ -59,8 +58,6 @@ var SocketCreatedCategoryCon = categoryController(app);
     SocketCreatedSearchCon(s)
     SocketCreatedCategoryCon(s)
  });
-
-
 
 server.listen(3001);
 console.log('Listening to port 3001 on localhost');
