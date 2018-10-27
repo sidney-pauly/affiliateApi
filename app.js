@@ -1,12 +1,15 @@
 var express = require('express');
 var app = express();
 var bodyParser = require('body-parser');
+var cors = require('cors')
 var mongoose = require('mongoose');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
 var searchController = require('./controllers/searchController.js')
 var productController = require('./controllers/productController.js')
 var categoryController = require('./controllers/categoryController.js')
+var websiteController = require('./controllers/websiteController.js')
+
 
 
 //set up template engine
@@ -35,28 +38,36 @@ function ConnectToDatabase(){
 app.use(express.static('./public'));
 
 //Set default Headers
-app.use(function (req, res, next) {
 
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
+var whitelist = ['http://localhost:3000', 'http://localhost:3001', '127.0.0.1:3001']
+var corsOptions = {
+  origin: function (origin, callback) {
+    //Allow all origins
+    callback(null, true)
+    /*
+    if (whitelist.indexOf(origin) !== -1) {
+      callback(null, true)
+    } else {
+      console.log('Unautherist acces from ' + origin)
+    }
+    */
+  }
+}
 
-  // Request methods you wish to allow
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+app.use(cors(corsOptions))
 
-  // Request headers you wish to allow
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-
-  next();
-});
 
 //fire Controllers
 var SocketCreatedSearchCon = searchController(app);
 productController(app);
 var SocketCreatedCategoryCon = categoryController(app);
+var SocketCreatedWebsiteCon = websiteController(app);
 
 //Setup socket io
   io.on('connection', function (s) {
     SocketCreatedSearchCon(s)
     SocketCreatedCategoryCon(s)
+    SocketCreatedWebsiteCon(s)
  });
 
 server.listen(3001);
