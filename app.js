@@ -9,7 +9,9 @@ var searchController = require('./controllers/searchController.js')
 var productController = require('./controllers/productController.js')
 var categoryController = require('./controllers/categoryController.js')
 var websiteController = require('./controllers/websiteController.js')
-
+var userController = require('./controllers/userController.js')
+var User = require('./models/User')
+var config = require('./config')
 
 
 //set up template engine
@@ -59,16 +61,27 @@ app.use(cors(corsOptions))
 
 //fire Controllers
 var SocketCreatedSearchCon = searchController(app);
-productController(app);
+var SocketCreatedProductCon = productController(app);
+userController(app);
 var SocketCreatedCategoryCon = categoryController(app);
 var SocketCreatedWebsiteCon = websiteController(app);
 
 //Setup socket io
   io.on('connection', function (s) {
     SocketCreatedSearchCon(s)
+    SocketCreatedProductCon(s)
     SocketCreatedCategoryCon(s)
     SocketCreatedWebsiteCon(s)
  });
+
+
+//Create admin user
+User.findOne({Username: config.admin.username, Password: config.admin.password}).then(function(u){
+  if(!u){
+    User.create({Username: config.admin.username, Password: config.admin.password, Level: 0})
+  }
+})
+
 
 server.listen(3001);
 console.log('Listening to port 3001 on localhost');

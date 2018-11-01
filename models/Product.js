@@ -24,7 +24,8 @@ var ProductSchema = Schema({
   EAN: String,
   Listings: [ListingSchema],
   Title: String,
-  Category: {type: Schema.Types.ObjectId, ref: 'Category'}
+  Category: {type: Schema.Types.ObjectId, ref: 'Category'},
+  DescriptionCustom: String
 });
 
 var Product = mongoose.model('Product', ProductSchema);

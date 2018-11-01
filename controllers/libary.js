@@ -1,5 +1,6 @@
 var Category = require('../models/Category.js');
-var Product = require('../models/Category')
+var Product = require('../models/Category');
+var Session = require('../models/Session')
 
 async function getLinkedCategory(cat){
   var c = await Category.findById(cat.Link)
@@ -14,6 +15,26 @@ var asyncForEach = async function(array, callback) {
     for (let index = 0; index < array.length; index++) {
         await callback(array[index], index, array)
     }
+}
+
+async function validateSession(session, level){
+  s = await Session.findById(session._id);
+  if(s){
+    return (s.SessionKey == session.SessionKey && s.Level <= level)
+  } else {
+    return false;
+  }
+  
+}
+
+function makeid(length) {
+  var text = "";
+  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+  for (var i = 0; i < length; i++)
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+  return text;
 }
   
   //Returns the apropriate Category based on the given product key
@@ -117,5 +138,7 @@ module.exports.findAllChildren = findAllChildren;
 module.exports.appendCategory = appendCategory;
 module.exports.isParentOf = isParentOf;
 module.exports.populateProduct = populateProduct;
+module.exports.makeid = makeid;
+module.exports.validateSession = validateSession;
 
 

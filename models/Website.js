@@ -5,7 +5,9 @@ var Schema = mongoose.Schema;
 var BlogSchema = Schema({
   Title: String,
   Text: String,
-  Category: {type: Schema.Types.ObjectId, ref: 'Category'}
+  TextShort: String,
+  Category: {type: Schema.Types.ObjectId, ref: 'Category'},
+  Rank: {type: Number, default: 0}
 });
 
 var WebsiteSchema = Schema({
