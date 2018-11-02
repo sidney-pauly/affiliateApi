@@ -13,6 +13,9 @@ var userController = require('./controllers/userController.js')
 var User = require('./models/User')
 var config = require('./config')
 
+const host = process.env.HOST || '127.0.0.1'
+const port = process.env.PORT || 3001
+
 
 //set up template engine
 app.set('view engine', 'ejs');
@@ -83,5 +86,6 @@ User.findOne({Username: config.admin.username, Password: config.admin.password})
 })
 
 
-server.listen(3001);
-console.log('Listening to port 3001 on localhost');
+server.listen(port, host)
+  console.log(`Server listening on http://${host}:${port}`)
+

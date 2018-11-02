@@ -79,3 +79,6 @@ dist
 
 # IDE
 .idea
+
+#Vs code files
+.vscode
