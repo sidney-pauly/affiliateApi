@@ -81,4 +81,4 @@ dist
 .idea
 
 #Vs code files
-.vscode
+.vscode/
