@@ -14,7 +14,7 @@ var User = require('./models/User')
 var config = require('./config')
 
 const host = process.env.HOST || '127.0.0.1'
-const port = process.env.PORT || 3001
+const port = process.env.PORT || 3000
 
 
 //set up template engine

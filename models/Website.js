@@ -12,7 +12,9 @@ var BlogSchema = Schema({
 
 var WebsiteSchema = Schema({
   Title: String,
-  Blogs: [BlogSchema]
+  Namespace: String,
+  Blogs: [BlogSchema],
+  navColor: String
 });
 
 

@@ -6,11 +6,12 @@ module.exports = function (app) {
 
   app.get('/website', async function (req, res) {
 
-
-    var w = await Website.findOne({ Title: req.query.title })
+    var w = await Website.findOne({ Namespace: req.query.namespace })
     if (!w) {
-      w = await Website.create({ Title: req.query.title })
+      w = await Website.create({ Namespace: req.query.namespace, Title: 'Placeholder' })
     }
+
+
     res.send(w);
 
   });
@@ -19,7 +20,7 @@ module.exports = function (app) {
 
     try {
 
-      var w = await Website.findOne({ Title: req.query.website })
+      var w = await Website.findOne({ Namespace: req.query.namespace })
       var b = await w.Blogs.find(b => b._id == req.query.id)
 
       res.send(b);
@@ -37,11 +38,34 @@ module.exports = function (app) {
     //async product search thru websocket
     return function (s) {
 
+      s.on('modifyWebsite', async function (data) {
+        console.log(data)
+
+        if (await validateSession(data.session, 0)) {
+
+          var w = await Website.findOne({ Namespace: data.namespace })
+
+          if (w) {
+
+            w.Title = data.website.title
+            w.navColor = data.website.navColor
+            await w.save()
+            
+            s.emit('modifyWebsite', w); //Send to requester
+
+          } else {
+            s.emit('errorMsg', { msg: 'Please enter something before submitting a website', code: 10000});
+          }
+
+        } else s.emit('errorMsg', { msg: 'unautherised', code: 403 });
+
+      })
+
       s.on('createBlog', async function (data) {
 
         if (await validateSession(data.session, 0)) {
 
-          var w = await Website.findOne({ Title: data.website })
+          var w = await Website.findOne({ Namespace: data.namespace })
 
           if (data.blog) {
 
@@ -63,7 +87,7 @@ module.exports = function (app) {
 
         if (await validateSession(data.session, 0)) {
 
-          var w = await Website.findOne({ Title: data.website })
+          var w = await Website.findOne({ Namespace: data.namespace })
 
           if (data.blog) {
 
@@ -88,7 +112,7 @@ module.exports = function (app) {
 
         if (await validateSession(data.session, 0)) {
 
-          var w = await Website.findOne({ Title: data.website })
+          var w = await Website.findOne({ Namespace: data.namespace })
 
           if (data.blog) {
 
