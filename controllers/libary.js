@@ -2,14 +2,6 @@ var Category = require('../models/Category.js');
 var Product = require('../models/Category');
 var Session = require('../models/Session')
 
-async function getLinkedCategory(cat){
-  var c = await Category.findById(cat.Link)
-  if(c){
-    return getLinkedCategory(c);
-  } else {
-    return cat
-  }
-}
 
 var asyncForEach = async function(array, callback) {
     for (let index = 0; index < array.length; index++) {
@@ -36,54 +28,7 @@ function makeid(length) {
 
   return text;
 }
-  
-  //Returns the apropriate Category based on the given product key
-  //Missing categories in the given tree get created
-var getCategoryFromTree = async function(categoryTree, affiliateProgram){
 
-
-  async function verifyLevel(level, parent){
-
-    //Find existing Category based
-    //Check if there is an exactly same category from the same retailer
-    //If not do a regex compareson of the title
-    var regExp = new RegExp('^' + categoryTree[level].Title.trim() + '$', 'i')
-    var c = await Category.findOne(
-        {
-          Parent: parent,
-          Aliases: {$elemMatch: {$or: [
-              {Id: categoryTree[level].Id, AffiliateProgram: affiliateProgram},
-              {Title: { $regex: regExp }}
-          ]}}})
-
-    //if Category doesn't exist create one
-    if(!c){
-      c = await Category.create({
-        Title: categoryTree[level].Title,
-        Aliases: [{Title: categoryTree[level].Title, Id: categoryTree[level].Id, AffiliateProgram: affiliateProgram}],
-        Parent: parent
-      });
-    }
-
-    //if there is another category in the tree match it
-    if(categoryTree[level+1]){
-      return await verifyLevel(level+1, c._id);
-    } else {
-      return c;
-    }
-
-  }
-
-  if(categoryTree[0]){
-    c = await verifyLevel(0, undefined);
-    c = await getLinkedCategory(c)
-    return c
-  } else {
-      return
-  }
-
-
-}
 
 var findAllChildren = async function(category){
 
@@ -127,18 +72,52 @@ var appendCategory = async function(cat1, cat2){
 
   return cat2;
 }
+
+
 async function populateProduct(product){
 
   return await product.populate('Category').execPopulate();
 }
 
+
+async function mergeCategories(cat1, cat2){
+
+  //Append all children of cat2 to cat1
+  var children = await Category.find({ Parent: cat2._id });
+  children.forEach(function (c) {
+    appendCategory(cat1, c)
+  })
+
+  
+  //Merge aliases of cat1 and cat2
+  var aliases = cat1.Aliases.concat(cat2.Aliases);
+  cat1.Aliases = aliases;
+  cat1 = await cat1.save()
+  
+
+  //Link the 2nd category to the first one to divert all new found products to it
+  cat2.Link = cat1._id;
+  cat2.save()
+
+  //Change the categories of products that had cat2 to cat1
+  var productsToChange = await Product.find({ Category: cat2._id })
+  productsToChange.forEach(function (p) {
+    p.Category = cat1._id;
+    p.save();
+  })
+
+  //Return cat 1 (conatnes both now)
+  return cat1
+
+}
+
 module.exports.asyncForEach = asyncForEach;
-module.exports.getCategoryFromTree = getCategoryFromTree;
 module.exports.findAllChildren = findAllChildren;
 module.exports.appendCategory = appendCategory;
 module.exports.isParentOf = isParentOf;
 module.exports.populateProduct = populateProduct;
 module.exports.makeid = makeid;
 module.exports.validateSession = validateSession;
+module.exports.mergeCategories = mergeCategories;
 
 

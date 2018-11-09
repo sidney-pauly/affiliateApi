@@ -1,7 +1,7 @@
 var Category = require('../models/Category.js');
 var Product = require('../models/Product.js');
 
-var { findAllChildren, appendCategory, isParentOf, validateSession } = require('./libary.js');
+var { findAllChildren, appendCategory, isParentOf, validateSession, mergeCategories } = require('./libary.js');
 
 module.exports = function (app) {
 
@@ -146,42 +146,24 @@ module.exports = function (app) {
           var cat1 = await Category.findById(data.Category1._id);
           var cat2 = await Category.findById(data.Category2._id);
 
-          if (await isParentOf(cat2, cat1)) {
-            s.emit('errorMsg', { msg: 'Parent cannot be merged with child', code: 10000 });
-            return
-          }
+         
 
           if (cat1 && cat2) {
 
-            //Append all children of cat2 to cat1
-            var children = await Category.find({ Parent: cat2._id });
-            children.forEach(function (c) {
-              appendCategory(cat1, c)
-            })
+            if (await isParentOf(cat2, cat1)) {
+              s.emit('errorMsg', { msg: 'Parent cannot be merged with child', code: 10000 });
+              return
+            }
 
             //Send deleted to update hud
             s.broadcast.emit('deletedCategory', cat2, false); //Send to everybody exept requester
             s.emit('deletedCategory', cat2, false); //Send to requester
 
-            //Merge cat1 and cat2
-            var aliases = cat1.Aliases.concat(cat2.Aliases);
-            cat1.Aliases = aliases;
-            cat1 = await cat1.save()
-            s.broadcast.emit('categoryChanged', cat1, true); //Send to everybody exept requester
-            s.emit('categoryChanged', cat1, true); //Send to requester
-
-
-
-            //Link the 2nd category to the first one to divert all new found products to it
-            cat2.Link = cat1._id;
-            cat2.save()
-
-            //Change the categories of products that had cat2 to cat1
-            var productsToChange = await Product.find({ Category: cat2._id })
-            productsToChange.forEach(function (p) {
-              p.Category = cat1._id;
-              p.save();
-            })
+            let c = await mergeCategories(cat1, cat2)
+            
+            s.broadcast.emit('categoryChanged', c, true); //Send to everybody exept requester
+            s.emit('categoryChanged', c, true); //Send to requester
+            
 
           } else {
             s.emit('errorMsg', { msg: 'Check input data', code: 10000 });

@@ -67,7 +67,11 @@ module.exports = function (app) {
 
           var w = await Website.findOne({ Namespace: data.namespace })
 
-          if (data.blog) {
+          if (data.blog && w) {
+
+            if(!w.Blogs){
+              w.Blogs = []
+            }
 
             w.Blogs.push(data.blog).isNew;
 
@@ -76,7 +80,7 @@ module.exports = function (app) {
             s.emit('newBlog', w.Blogs[w.Blogs.length - 1]); //Send to requester
 
           } else {
-            s.emit('errorMsg', { msg: 'Please enter something before submitting a blog', code: 10000});
+            s.emit('errorMsg', { msg: 'Something went wrong', code: 10000});
           }
 
         } else s.emit('errorMsg', { msg: 'unautherised', code: 403 });

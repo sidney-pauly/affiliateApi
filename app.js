@@ -11,6 +11,7 @@ var categoryController = require('./controllers/categoryController.js')
 var websiteController = require('./controllers/websiteController.js')
 var userController = require('./controllers/userController.js')
 var User = require('./models/User')
+var Category = require('./models/Category')
 var config = require('./config')
 
 const host = process.env.HOST || '127.0.0.1'
@@ -28,7 +29,7 @@ ConnectToDatabase();
 
 function ConnectToDatabase(){
   console.log('Trying to connect to Database ...')
-  mongoose.connect('mongodb://localhost:27017/Affiliate', { useNewUrlParser: true }).then(function(){
+  mongoose.connect('mongodb://localhost:27017/Affiliate' + config.namespace, { useNewUrlParser: true }).then(function(){
     console.log('Connected to Database');
   }).catch( function(err) {
       console.log('Unable to connect to Database ... retrying every 5sec');
@@ -82,6 +83,13 @@ var SocketCreatedWebsiteCon = websiteController(app);
 User.findOne({Username: config.admin.username, Password: config.admin.password}).then(function(u){
   if(!u){
     User.create({Username: config.admin.username, Password: config.admin.password, Level: 0})
+  }
+})
+
+//Create 'Sonstiges' Category
+Category.findOne({Title: 'Sonstiges'}).then(function(u){
+  if(!u){
+    Category.create({Title: 'Sonstiges'})
   }
 })
 

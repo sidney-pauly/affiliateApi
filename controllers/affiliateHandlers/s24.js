@@ -4,8 +4,8 @@ var Category = require('../../models/Category');
 var {asyncForEach} = require('../libary.js');
 var { getCategoryFromTree } = require('./affiliateLibary');
 
-var AffilinetPublisherId = '821350';
-var AffilinetPassword = '9j3msjLqmyVvXns5tKZ7';
+var Id = 'efcb625b';
+var Password = 'kunygvpjr4xqnpclmf97nbuzjigky0ek';
 
 function getCategoryTreeAffilinet(product){
 
@@ -107,6 +107,7 @@ async function addSimilarAffilinetProducts(product){
 }
 
 async function addProduct(affilinetProduct){
+  //Check if this EAN is already handeled in this search
 
   var p = await Product.findOne({EAN: affilinetProduct.EAN});
 
@@ -145,24 +146,31 @@ async function addProduct(affilinetProduct){
 
 }
 
-
-async function search(query, maxResults, callback){
+module.exports = {
+  search: async function(query, maxResults, callback){
 
     var options = {
-      uri: 'https://product-api.affili.net/V3/productservice.svc/JSON/SearchProducts',
+      uri: 'https://api.s24.com/v3/'+ Id + '/search',
+      headers: {
+        authorization: 'Basic ' + Buffer.from(Id + ':' + Password).toString('base64'),
+        Accept: 'application/json'
+      },
       qs: {
-          PublisherId: AffilinetPublisherId,
-          Password: AffilinetPassword,
-          ImageScales: 'OriginalImage',
-          LogoScales: 'Logo468',
-          Query: query,
-          PageSize: maxResults
+          q: query,
+
       }
     };
   
+    try{
+
+      console.log(JSON.parse(await rp(options)))
+    }catch(err){
+      console.log(err)
+    }
+   
+
     
-    var body = await rp(options);
-  
+  /*
     body = JSON.parse(body.trim());
   
     var Products = []
@@ -197,8 +205,8 @@ async function search(query, maxResults, callback){
   
 
     return EANs;
+    */
   
   }
-
-  module.exports.search = search;
+}
 

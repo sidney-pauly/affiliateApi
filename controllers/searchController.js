@@ -1,19 +1,17 @@
-var { searchAffilinet } = require('./affiliateHandlers/affilinet');
+
 var { populateProduct } = require('./libary')
 var Product = require('../models/Product')
+var s24 = require('./affiliateHandlers/s24')
+var affilinet = require('./affiliateHandlers/affilinet');
 
 module.exports = function (app) {
 
-  app.post('/searchProducts', function (req, res) {
+  app.post('/searchProducts', async function (req, res) {
 
     var time = Date.now();
 
-
     try {
 
-      helper();
-
-      async function helper() {
         if (req.body.categories && req.body.categories.length > 0) {
 
           var pro = await Promise.all(req.body.categories.map(c => {
@@ -43,11 +41,26 @@ module.exports = function (app) {
 
         } else if (req.body.query) {
 
+          async function helper(){
 
+            return new Promise(async function (resolve, reject){
 
-          var products = await searchAffilinet(req.body.query, 20, function (p) {
+              let pros = []
+              await affilinet.search(req.body.query, 20, function (p, final) {
+                pros.push(p);
 
-          });
+                //If last product was send resolve
+                if(final){
+                  resolve(pros);
+                }
+              });
+            })
+            
+          }
+          
+          s24.search(req.body.query, 20)
+
+          var products = await helper()
           products = products.filter(p => { return p != undefined });
           products = await Promise.all(products.map(async p => {
             return p = await populateProduct(p);
@@ -56,7 +69,7 @@ module.exports = function (app) {
           res.send(products)
 
         }
-      }
+      
     } catch (er) {
 
       console.log(er);
@@ -101,15 +114,12 @@ module.exports = function (app) {
 
         } else if (data.query) {
 
-          searchAffilinet(data.query, data.maxResults, async function (p) {
+          affilinet.search(data.query, data.maxResults, async function (p) {
             p = await populateProduct(p);
             s.emit('product', p);
           });
 
         }
-
-
-
 
       })
     }
