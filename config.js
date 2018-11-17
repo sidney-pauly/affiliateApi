@@ -4,5 +4,7 @@ module.exports = {
         password: 'password'
         
     },
-    namespace: 'Mologico'
+    namespace: 'Mologico',
+    //How often do the products get refreched
+    updateCicle: 1000*60*5
 }

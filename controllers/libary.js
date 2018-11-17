@@ -111,6 +111,13 @@ async function mergeCategories(cat1, cat2){
 
 }
 
+function flatten(arr) {
+  return arr.reduce(function (flat, toFlatten) {
+    return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
+  }, []);
+}
+
+module.exports.flatten = flatten;
 module.exports.asyncForEach = asyncForEach;
 module.exports.findAllChildren = findAllChildren;
 module.exports.appendCategory = appendCategory;

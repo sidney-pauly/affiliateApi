@@ -4,16 +4,16 @@ var Category = require('./Category')
 
 //Create shemas
 var ListingSchema = Schema({
-  AffiliateProgram: String,
-  AffiliateProgramProductId: Number,
-  Title: String,
+  AffiliateProgram: { type: String, required: true },
+  AffiliateProgramProductId: { type: Number, required: true },
+  Title: { type: String, required: true },
   Description: String,
   DescriptionShort: String,
-  Deeplink: String,
+  Deeplink: { type: String, required: true },
   Images: [Schema({URL: String, Width: Number, Height: Number})],
   DisplayPrice: String,
   DisplayShipping: String,
-  Price: Number,
+  Price: { type: Number, required: true },
   Shipping: Number,
   Brand: String,
   ShopTitle: String,
@@ -25,7 +25,8 @@ var ProductSchema = Schema({
   Listings: [ListingSchema],
   Title: String,
   Category: {type: Schema.Types.ObjectId, ref: 'Category'},
-  DescriptionCustom: String
+  DescriptionCustom: String,
+  LastUpdated: {type: Date, default: Date.now}
 });
 
 var Product = mongoose.model('Product', ProductSchema);

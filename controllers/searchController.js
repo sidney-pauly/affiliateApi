@@ -3,6 +3,7 @@ var { populateProduct } = require('./libary')
 var Product = require('../models/Product')
 var s24 = require('./affiliateHandlers/s24')
 var affilinet = require('./affiliateHandlers/affilinet');
+var affiliate = require('./affiliateHandlers/affiliateLibary')
 
 module.exports = function (app) {
 
@@ -37,36 +38,27 @@ module.exports = function (app) {
             resProducts = resProducts.concat(p);
           })
 
+
+
           res.send(resProducts)
 
+          //If no category is listed
         } else if (req.body.query) {
 
-          async function helper(){
+          helper();
 
-            return new Promise(async function (resolve, reject){
+         async function helper(){
+           let products = await affiliate.search(req.body.query, 20, function(p){
+             
+           })
 
-              let pros = []
-              await affilinet.search(req.body.query, 20, function (p, final) {
-                pros.push(p);
-
-                //If last product was send resolve
-                if(final){
-                  resolve(pros);
-                }
-              });
-            })
-            
+           products = products.filter(p => { 
+             return p != null;
+           })
+          res.send(products)
           }
           
-          s24.search(req.body.query, 20)
-
-          var products = await helper()
-          products = products.filter(p => { return p != undefined });
-          products = await Promise.all(products.map(async p => {
-            return p = await populateProduct(p);
-          }))
-          console.log(Date.now() - time + 'ms');
-          res.send(products)
+          
 
         }
       
@@ -114,8 +106,9 @@ module.exports = function (app) {
 
         } else if (data.query) {
 
-          affilinet.search(data.query, data.maxResults, async function (p) {
-            p = await populateProduct(p);
+         
+          affiliate.search(data.query, data.maxResults, async function (p) {
+            //p = await populateProduct(p);
             s.emit('product', p);
           });
 

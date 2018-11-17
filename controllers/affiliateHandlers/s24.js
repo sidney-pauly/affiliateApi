@@ -1,212 +1,145 @@
 var rp = require('request-promise-native');
-var Product = require('../../models/Product');
-var Category = require('../../models/Category');
-var {asyncForEach} = require('../libary.js');
-var { getCategoryFromTree } = require('./affiliateLibary');
 
 var Id = 'efcb625b';
 var Password = 'kunygvpjr4xqnpclmf97nbuzjigky0ek';
 
-function getCategoryTreeAffilinet(product){
+//Transformes affilinet data to database data schema
+async function mapProduct(product) {
+  try {
+    //Get Category path
+    function getCategoryTree() {
 
-  //Get Categorie Title
-  var CategoryTree = [];
-  product.ShopCategoryPath.replace(/[\u00C0-\u017FA-Za-z &]+/g, function(match, g1, g2) {
-    CategoryTree.push({Title: match.trim()});
-  });
+      if (product.parentcategories) {
+        //Get category path
+        let CategoryTree = product.parentcategories.map(c => {
+          return {
+            id: c.id,
+            title: c.name,
+            affiliateProgram: 's24'
+          }
+        })
 
-  //Get Categorie id
-  var i = 0;
-  product.ShopCategoryIdPath.replace(/\d+/g, function(match, g1, g2) {
-    if( CategoryTree[i]){
-      CategoryTree[i].Id = match;
-    i++;
+        CategoryTree.push({
+          id: product.category.id,
+          title: product.category.name,
+          affiliateProgram: 's24'
+        })
+
+        //Remove first category as it is not essential
+        CategoryTree.splice(0, 1)
+
+
+        return CategoryTree;
+      } else {
+        return [{id: undefined,
+          title: 'Sonstiges',
+          affiliateProgram: 's24'}]
+      }
+
     }
-  });
 
-  return CategoryTree;
+    //Get product images
+    let images = product.productImage.map(i => {
+      let link = i.links.find(l => l.rel == 'image-original').href
+      return {
+        URL: link,
+        Width: 500,
+        Height: 500
+      }
+    })
+
+    //Get all listings
+    async function getListings() {
+      return await Promise.all(product.shops.shopitems.map(async function (s) {
+
+        //Get deeplink
+        let deeplink = s.links.find(l => l.rel == 'clickout').href
+
+        return {
+          AffiliateProgram: 's24',
+          AffiliateProgramProductId: product.id,
+          Title: product.title,
+          Description: product.description,
+          DescriptionShort: product.description,
+          Deeplink: deeplink,
+          Images: images,
+          DisplayPrice: s.costs.price.price,
+          DisplayShipping: s.costs.shipping.price,
+          Price: s.costs.price.priceInCents / 100,
+          Shipping: s.costs.shipping.priceInCents / 100,
+          Brand: product.Brand,
+          Logos: [s.imageResource.links[0].href]
+        }
+      }));
+    }
+
+    return {
+      EAN: product.ean,
+      Title: product.title,
+      CategoryTree: getCategoryTree(),
+      Listings: await getListings()
+    }
+  } catch (er) {
+    console.log(er)
+    return undefined
+  }
 }
 
 
-async function AddAffilinetListing(product, listing){
+//Returns similar products
+async function findSimilarProducts(product) {
 
-  function getImages(){
-    var Images = [];
-    listing.Images.forEach(function(i){
-      i.forEach(function(ri){
-        Images.push({URL: ri.URL, Width: ri.Width, Height: ri.Height});
-      });
-    });
-    return Images;
-  }
-
-  function getLogos(){
-    var Logos = [];
-    listing.Logos.forEach(function(l){
-        Logos.push(l.URL);
-    });
-    return Logos;
-  }
-
-  var pricePatt = /\d*[.]\d{2}/;
-
-  var data = {
-    AffiliateProgram: 'Affilinet',
-    AffiliateProgramProductId: listing.ProductId,
-    Title: listing.ProductName,
-    Description: listing.Description,
-    DescriptionShort: listing.DescriptionShort,
-    Deeplink: listing.Deeplink1,
-    Images: getImages(),
-    DisplayPrice: listing.PriceInformation.DisplayPrice,
-    DisplayShipping: listing.PriceInformation.DisplayShipping,
-    Price: Number(pricePatt.exec(listing.PriceInformation.DisplayPrice)),
-    Shipping: Number(pricePatt.exec(listing.PriceInformation.DisplayShipping)),
-    Brand: listing.Brand,
-    Logos: getLogos()
-  }
-
-  //Find existing Lsiting and make new one if none exists
-    var existingListingId = await product.Listings.findIndex(function(l){
-      return l.AffiliateProgram === 'Affilinet' && l.AffiliateProgramProductId === listing.ProductId;
-    });
-
-    if(existingListingId > -1){
-      product.Listings[existingListingId].set(data);
-    } else {
-      //Create new listing
-      product.Listings.push(data).isNew;
-    }
-
-}
-
-async function addSimilarAffilinetProducts(product){
-
-  if(!product.EAN){
-    return
+  if (!product.EAN) {
+    return [];
   }
 
   var options = {
-    uri: 'https://product-api.affili.net/V3/productservice.svc/JSON/SearchProducts',
-    qs: {
-        PublisherId: AffilinetPublisherId,
-        Password: AffilinetPassword,
-        ImageScales: 'OriginalImage',
-        LogoScales: 'Logo468',
-        fq: 'EAN:' + product.EAN,
-        PageSize: 500
+    uri: 'https://api.s24.com/v3/' + Id + '/ean/' + product.EAN,
+    headers: {
+      authorization: 'Basic ' + Buffer.from(Id + ':' + Password).toString('base64'),
+      Accept: 'application/json'
     }
   };
 
-  var body = await rp(options);
-  body = JSON.parse(body.trim());
-  body.Products.forEach(function(p){
-    AddAffilinetListing(product, p);
-  });
+  var body = JSON.parse(await rp(options));
+
+
+  return await Promise.all(body.products.map(async p => {
+    return await mapProduct(p)
+  }));
 
 }
 
-async function addProduct(affilinetProduct){
-  //Check if this EAN is already handeled in this search
 
-  var p = await Product.findOne({EAN: affilinetProduct.EAN});
+async function search(query, maxResults) {
 
-  if(!p || !affilinetProduct.EAN){
 
-    //Get the category async
-    var Category = getCategory();
-
-    async function getCategory(){
-      const CategoryTree = await getCategoryTreeAffilinet(affilinetProduct);
-      return await getCategoryFromTree(CategoryTree, 'Affilinet');
+  var options = {
+    uri: 'https://api.s24.com/v3/' + Id + '/search',
+    headers: {
+      authorization: 'Basic ' + Buffer.from(Id + ':' + Password).toString('base64'),
+      Accept: 'application/json'
+    },
+    qs: {
+      q: query,
+      pageElements: maxResults
     }
+  };
 
-    p = await Product.create({EAN: affilinetProduct.EAN, Title: affilinetProduct.ProductName, Listings: []});
-    
-    var c = await Promise.resolve(Category);
-    p.Category = c;
-    delete p.CategoryTree;
-    if(!c){
-      return
-    }
+  try {
+    var body = JSON.parse(await rp(options))
+    var products = body.products;
+  } catch (err) {
+    console.log(err)
   }
 
-  AddAffilinetListing(p, affilinetProduct);
+  products = await Promise.all(body.products.map(async p => {
+    return mapProduct(p);
+  }));
 
-  //Find similar products in the Affilinet database
-  await addSimilarAffilinetProducts(p);
-  
-  //Save product
-  try{
-    return await p.save();
-  } catch(er) {
-    console.log(er)
-  }
- 
+  return products;
 
 }
 
-module.exports = {
-  search: async function(query, maxResults, callback){
-
-    var options = {
-      uri: 'https://api.s24.com/v3/'+ Id + '/search',
-      headers: {
-        authorization: 'Basic ' + Buffer.from(Id + ':' + Password).toString('base64'),
-        Accept: 'application/json'
-      },
-      qs: {
-          q: query,
-
-      }
-    };
-  
-    try{
-
-      console.log(JSON.parse(await rp(options)))
-    }catch(err){
-      console.log(err)
-    }
-   
-
-    
-  /*
-    body = JSON.parse(body.trim());
-  
-    var Products = []
-    var EANs = [];
-
-    //Prevent duplicate EANs from beeing handeled by filering duplicates
-    body.Products.forEach(function(p){
-
-      if(!EANs.find(e => e === p.EAN || e == undefined)){ //If EAN is udefined pass anyways
-        EANs.push(p.EAN);
-        Products.push(p);
-      }
-
-    })
-    
-    let pLength = Products.length
-
-    //Add product to database
-    Products = Promise.all(
-      Products.map(async (p, i) => {
-
-        let pro = await addProduct(p);
-  
-        if(pro){
-          callback(pro, i >= pLength-1);
-          return(pro);
-        }
-       
-
-      })
-    )
-  
-
-    return EANs;
-    */
-  
-  }
-}
-
+module.exports.search = search;
+module.exports.findSimilarProducts = findSimilarProducts;
