@@ -49,6 +49,7 @@ module.exports = function (app) {
 
             w.Title = data.website.title
             w.navColor = data.website.navColor
+            w.LandingImage = data.website.LandingImage
             await w.save()
             
             s.emit('modifyWebsite', w); //Send to requester
@@ -75,9 +76,15 @@ module.exports = function (app) {
 
             w.Blogs.push(data.blog).isNew;
 
-            w.save()
+            try{
+              await w.save()
+              s.emit('newBlog', w.Blogs[w.Blogs.length - 1]); //Send to requester
+            }
+            catch(er){
+              s.emit('errorMsg', { msg: 'Something went wrong', code: 10000});
+            }
 
-            s.emit('newBlog', w.Blogs[w.Blogs.length - 1]); //Send to requester
+            
 
           } else {
             s.emit('errorMsg', { msg: 'Something went wrong', code: 10000});
