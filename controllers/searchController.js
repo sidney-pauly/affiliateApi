@@ -2,7 +2,6 @@
 var { populateProduct } = require('./libary')
 var Product = require('../models/Product')
 var s24 = require('./affiliateHandlers/s24')
-var affilinet = require('./affiliateHandlers/affilinet');
 var affiliate = require('./affiliateHandlers/affiliateLibary')
 
 module.exports = function (app) {
@@ -48,7 +47,7 @@ module.exports = function (app) {
           helper();
 
          async function helper(){
-           let products = await affiliate.search(req.body.query, 20, function(p){
+           let products = await affiliate.search(req.body.query, 20, req.body.page, function(p){
              
            })
 
@@ -106,11 +105,19 @@ module.exports = function (app) {
 
         } else if (data.query) {
 
+          let products = []
+          let page = data.page;
+
+          do{
+            products = await affiliate.search(data.query, 50, page, async function (p) {
+              //p = await populateProduct(p);
+              s.emit('product', p);
+            });
+            page++;
+          }while(products.length > 0 && page < data.page+2)
+
          
-          affiliate.search(data.query, data.maxResults, async function (p) {
-            //p = await populateProduct(p);
-            s.emit('product', p);
-          });
+          
 
         }
 

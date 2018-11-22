@@ -147,21 +147,19 @@ async function buildCategoryLevel(pros, level) {
 
 
 //Searches all affiliate programms
-async function search(query, maxResults, callback) {
+async function search(query, maxResults, page, callback) {
 
     console.log()
     let time = Date.now()
 
 
-    let affilinetProductsPromise = affilinet.search(query, maxResults);
-    let s24ProductsPromise = s24.search(query, maxResults)
+    let affilinetProductsPromise = affilinet.search(query, maxResults, page);
+    let s24ProductsPromise = s24.search(query, maxResults, page)
     let affilinetProducts = await affilinetProductsPromise;
     let s24Products = await s24ProductsPromise;
 
 
     let products = affilinetProducts.concat(s24Products);
-
-
 
     let EANs = []
 

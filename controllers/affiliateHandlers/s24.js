@@ -111,7 +111,7 @@ async function findSimilarProducts(product) {
 }
 
 
-async function search(query, maxResults) {
+async function search(query, maxResults, page) {
 
 
   var options = {
@@ -122,7 +122,8 @@ async function search(query, maxResults) {
     },
     qs: {
       q: query,
-      pageElements: maxResults
+      pageElements: maxResults,
+      page: page
     }
   };
 

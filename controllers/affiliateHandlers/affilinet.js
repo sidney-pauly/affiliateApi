@@ -114,7 +114,11 @@ async function findSimilarProducts(product) {
 }
 
 
-async function search(query, maxResults) {
+async function search(query, maxResults, page) {
+
+  if(maxResults > 500){
+    maxResults = 499
+  }
 
 
   var options = {
@@ -125,7 +129,8 @@ async function search(query, maxResults) {
       ImageScales: 'OriginalImage',
       LogoScales: 'Logo468',
       Query: query,
-      PageSize: maxResults
+      PageSize: maxResults,
+      CurrentPage: page
     }
   };
 
